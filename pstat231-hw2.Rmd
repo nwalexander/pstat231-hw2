@@ -1,0 +1,90 @@
+---
+title: "pstat231-hw2"
+output:
+  html_document: default
+  pdf_document: default
+date: '2022-10-13'
+---
+
+Q1:
+```{r}
+library(tidymodels)
+library(tidyverse)
+data <- read.csv("data/abalone.csv")
+data['age'] = data['rings'] + 1.5
+hist(data$age)
+```
+The distribution is right skewed with most samples having ages between 7.5 and 15.
+
+Q2:
+```{r}
+set.seed(42)
+
+data_split <- initial_split(data, prop = 0.80,
+                                strata = age)
+data_train <- training(data_split) %>% select(-rings)
+data_test <- testing(data_split) %>% select(-rings)
+```
+
+Q3:
+```{r}
+recipe <-
+  recipe(age ~ ., data = data_train) %>% 
+    step_dummy(all_nominal_predictors()) %>%
+    step_interact(terms = ~ starts_with(('type_')) + shucked_weight) %>%
+    step_interact(terms = ~ longest_shell + diameter) %>%
+    step_interact(terms = ~ shucked_weight + shell_weight) %>%
+    step_center(all_numeric_predictors()) %>%
+    step_scale(all_numeric_predictors())
+recipe
+```
+
+The whole purpose of this model is to calculate abalones' age without having to count rings. Having the ring count gives the age, so the model would be pointless if we still needed this value for predicting age.
+
+Q4:
+```{r}
+lm_model <- linear_reg() %>% 
+  set_engine("lm")
+```
+
+Q5:
+```{r}
+lm_wflow <- workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(recipe)
+```
+
+Q6:
+```{r}
+lm_fit <- fit(lm_wflow, data_train)
+
+sample <- data.frame('F', .50, .10, .30, 4, 1, 2, 1)
+names(sample) <- names(data_train %>% select(-age))
+
+predict(lm_fit, new_data = sample)
+
+```
+
+Q7:
+```{r}
+library(yardstick)
+
+lm_metrics <- metric_set(rsq, rmse, mae)
+pred <- predict(lm_fit, data_train)
+
+results <- bind_cols(pred, data_train %>% select(age))
+
+lm_metrics(results, truth = age, estimate = .pred)
+```
+The model observes 53% of the variability in the target variable.
+
+Q8:
+Bias and Variance represent reproducible errors. The zero-mean random noise represents irreducible error.
+
+
+Q9:
+Given a model with low bias and low variance, the model will have a good generalization for all test samples. Even with a "perfect" fit, the model must account for random noise and hence, the irreducible error(random noise) will always be present.
+
+Q10
+Link to handwritten proof:
+https://drive.google.com/file/d/1kgP5bkUw42K_D5GH507fN9N2_175wAbf/view?usp=sharing
